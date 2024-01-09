@@ -1,86 +1,114 @@
 <script lang="ts">
-	import { Transport, type TransportData } from '$lib/systems/transport';
+	import * as Database from '$lib/services/database';
+	import { Transport, default_transport_data, type TransportData } from '$lib/systems/transport';
+	import { onMount } from 'svelte';
 
+	// state
 	let transport: Transport | null = null;
-
-	let adminList = ['Melissa Helgerburth', 'Kenneth Bronstein', 'Angela DeCote'];
-	let searching = false;
-	let searchTimer: ReturnType<typeof setTimeout> | null = null;
-
-	function update(e: Event) {
-		const t = e.target as HTMLSelectElement;
-		const field = t.name as keyof TransportData;
-		const value = (e.target as HTMLSelectElement).value;
-
-		console.log(t.name);
-		transport = transport?.update(field, value) || null;
-
-		if (field === 'id' && value) {
-			searching = true;
-
-			if (searchTimer) clearTimeout(searchTimer);
-
-			searchTimer = setTimeout(() => {
-				routes = Math.random() < 0.5 ? ['1', '2', '3'] : [];
-				searching = false;
-			}, 5000);
-		}
-
-		if (field === 'id' && !value) searching = false;
-	}
-
-	const default_transport: TransportData = {
-		id: '',
-		status: 'current',
-		coordinator: '',
-		monitor: ''
-	};
-
 	let routes: string[] = [];
+	let loading = false;
+	let error: string = '';
+
+	// Page loads with 'current' as the selected view option
+	onMount(() => {
+		// Database tries to find a current transport (status)
+		let data = Database.find('current');
+		// If it exists, it is loaded into the transport object
+		if (data) transport = new Transport(data);
+	});
+
+	// Database tries to find a transport with that date
+	// If it exists, we know it is not current or it would have found it, so error
+	// If it does not exist, we can update the transport object with the new date
+
+	// Transport does not exist (create a new one)
+	let adminList = ['Melissa Helgerburth', 'Kenneth Bronstein', 'Angela DeCote'];
+
+	/**
+	 * Handle change event
+	 * @param e Event
+	 */
+	function handleChange(e: Event) {
+		const target = e.target as HTMLSelectElement;
+		const field = target.name as keyof TransportData;
+		const value = target.value;
+
+		error = '';
+		// User has selected a date
+		if (field === 'id' && value) {
+			// Let the user know it is loading
+			loading = true;
+
+			// Database tries to find a transport with that date
+			const db_transport = Database.find(value);
+			// Mock the database returning a response
+			setTimeout(() => {
+				// No longer loading when response is received
+				loading = false;
+
+				// If it exists, we know it is not current or it would have found it, so error
+				if (db_transport) return (error = 'Transport already exists');
+
+				// At this point, we know it does not exist, so we can find the details
+				// TODO: Get the passengers from the Transport Chart
+				// routes = ['1', '2', '3'];
+			}, 2000);
+		}
+		// User has selected the default date option
+		if (field === 'id' && !value) loading = false;
+
+		// Update the transport object with the new value
+		transport = transport!.update(field, value);
+	}
 </script>
 
 {#if !transport}
 	<div>There is no current transport</div>
 	<button
 		on:click={() => {
-			transport = new Transport(default_transport);
+			transport = new Transport(default_transport_data);
 		}}>New Transport</button
 	>
 {:else}
 	<label>
 		Start Date
-		<select name="id" bind:value={transport.id} on:change={update}>
+		<select name="id" bind:value={transport.id} on:change={handleChange}>
 			<option value="">Choose a date</option>
 			<option value="01-06-24">01-06-24</option>
+			<option value="1">1</option>
 		</select>
 	</label>
 
-	<label>
-		Coordinator
-		<select name="coordinator" bind:value={transport.coordinator} on:change={update}>
-			<option value="">Choose a coordinator</option>
-			{#each adminList as c}
-				<option value={c}>{c}</option>
-			{/each}
-		</select>
-	</label>
+	{#if transport.id}
+		<label>
+			Coordinator
+			<select name="coordinator" bind:value={transport.coordinator} on:change={handleChange}>
+				<option value="">Choose a coordinator</option>
+				{#each adminList as c}
+					<option value={c}>{c}</option>
+				{/each}
+			</select>
+		</label>
 
-	<label>
-		Monitor
-		<select name="monitor" bind:value={transport.monitor} on:change={update}>
-			<option value="">Choose a monitor</option>
-			{#each adminList as c}
-				<option value={c}>{c}</option>
-			{/each}
-		</select>
-	</label>
+		<label>
+			Monitor
+			<select name="monitor" bind:value={transport.monitor} on:change={handleChange}>
+				<option value="">Choose a monitor</option>
+				{#each adminList as c}
+					<option value={c}>{c}</option>
+				{/each}
+			</select>
+		</label>
+	{/if}
 
-	{#if searching}
-		<div>Searching for transport: {transport.id}</div>
+	{#if error}
+		<div>{error}</div>
 	{:else if !transport.id}
 		<div>Choose a date to find the transport data</div>
+	{:else if loading}
+		<div>Creating transport for {transport.id}</div>
 	{:else if routes.length === 0}
-		<div>There were no routes found. add passengers</div>
+		<div>There were no routes found. Check the Transport Chart.</div>
 	{:else}
 		{#each routes as route}
 			<div>{route}</div>

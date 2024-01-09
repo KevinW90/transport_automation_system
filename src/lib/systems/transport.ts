@@ -1,5 +1,12 @@
 // all transport logic
 
+export const default_transport_data: TransportData = {
+	id: '',
+	status: 'current',
+	monitor: '',
+	coordinator: ''
+};
+
 export type TransportData = {
 	id: string;
 	status: 'current' | 'completed';
@@ -18,7 +25,7 @@ export class Transport {
 	 * 2) Frontend
 	 */
 	constructor(data: TransportData) {
-		this._data = data;
+		this._data = { ...data };
 	}
 
 	/**
