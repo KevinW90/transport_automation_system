@@ -1,15 +1,19 @@
 // all transport logic
 
+import { writable } from 'svelte/store';
+
 export const default_transport_data: TransportData = {
 	id: '',
-	status: 'current',
+	status: '',
 	monitor: '',
 	coordinator: ''
 };
 
+type TransportStatus = 'current' | 'completed' | '';
+
 export type TransportData = {
 	id: string;
-	status: 'current' | 'completed';
+	status: TransportStatus;
 	monitor: string;
 	coordinator: string;
 };
@@ -48,7 +52,7 @@ export class Transport {
 		return this._data.id;
 	}
 
-	get status(): 'current' | 'completed' {
+	get status(): TransportStatus {
 		return this._data.status;
 	}
 
@@ -79,3 +83,5 @@ export class Transport {
 	}
 	///////////
 }
+
+export let current_transport = writable<Transport>(new Transport(default_transport_data));

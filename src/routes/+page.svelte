@@ -1,10 +1,14 @@
 <script lang="ts">
 	import * as Database from '$lib/services/database';
-	import { Transport, default_transport_data, type TransportData } from '$lib/systems/transport';
+	import {
+		Transport,
+		default_transport_data,
+		type TransportData,
+		current_transport
+	} from '$lib/systems/transport';
 	import { onMount } from 'svelte';
 
 	// state
-	let transport: Transport | null = null;
 	let routes: string[] = [];
 	let loading = false;
 	let error: string = '';
@@ -14,7 +18,7 @@
 		// Database tries to find a current transport (status)
 		let data = Database.find('current');
 		// If it exists, it is loaded into the transport object
-		if (data) transport = new Transport(data);
+		if (data) current_transport.set(new Transport(data));
 	});
 
 	// Database tries to find a transport with that date
@@ -50,6 +54,10 @@
 				if (db_transport) return (error = 'Transport already exists');
 
 				// At this point, we know it does not exist, so we can find the details
+				current_transport.update((prev) => {
+					const updated_transport = prev!.update('id', value);
+					return updated_transport;
+				});
 				// TODO: Get the passengers from the Transport Chart
 				// routes = ['1', '2', '3'];
 			}, 2000);
@@ -58,31 +66,41 @@
 		if (field === 'id' && !value) loading = false;
 
 		// Update the transport object with the new value
-		transport = transport!.update(field, value);
+		current_transport.update((prev) => {
+			const updated_transport = prev!.update(field, value);
+			return updated_transport;
+		});
 	}
 </script>
 
-{#if !transport}
+{#if $current_transport.status !== 'current'}
 	<div>There is no current transport</div>
 	<button
 		on:click={() => {
-			transport = new Transport(default_transport_data);
+			current_transport.update((prev) => {
+				const updated_transport = prev.update('status', 'current');
+				return updated_transport;
+			});
 		}}>New Transport</button
 	>
 {:else}
 	<label>
 		Start Date
-		<select name="id" bind:value={transport.id} on:change={handleChange}>
+		<select name="id" bind:value={$current_transport.id} on:change={handleChange}>
 			<option value="">Choose a date</option>
 			<option value="01-06-24">01-06-24</option>
 			<option value="1">1</option>
 		</select>
 	</label>
 
-	{#if transport.id}
+	{#if $current_transport.id}
 		<label>
 			Coordinator
-			<select name="coordinator" bind:value={transport.coordinator} on:change={handleChange}>
+			<select
+				name="coordinator"
+				bind:value={$current_transport.coordinator}
+				on:change={handleChange}
+			>
 				<option value="">Choose a coordinator</option>
 				{#each adminList as c}
 					<option value={c}>{c}</option>
@@ -92,7 +110,7 @@
 
 		<label>
 			Monitor
-			<select name="monitor" bind:value={transport.monitor} on:change={handleChange}>
+			<select name="monitor" bind:value={$current_transport.monitor} on:change={handleChange}>
 				<option value="">Choose a monitor</option>
 				{#each adminList as c}
 					<option value={c}>{c}</option>
@@ -103,10 +121,10 @@
 
 	{#if error}
 		<div>{error}</div>
-	{:else if !transport.id}
+	{:else if !$current_transport.id}
 		<div>Choose a date to find the transport data</div>
 	{:else if loading}
-		<div>Creating transport for {transport.id}</div>
+		<div>Creating transport for {$current_transport.id}</div>
 	{:else if routes.length === 0}
 		<div>There were no routes found. Check the Transport Chart.</div>
 	{:else}
