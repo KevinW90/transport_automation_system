@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as Database from '$lib/services/database';
+	import { Passenger, createFakePassengerData } from '$lib/systems/passenger';
 	import {
 		Transport,
 		default_transport_data,
@@ -9,7 +10,7 @@
 	import { onMount } from 'svelte';
 
 	// state
-	let routes: string[] = [];
+	let routes: { [key: string]: Passenger[] };
 	let loading = false;
 	let error: string = '';
 
@@ -53,12 +54,19 @@
 				// If it exists, we know it is not current or it would have found it, so error
 				if (db_transport) return (error = 'Transport already exists');
 
-				// At this point, we know it does not exist, so we can find the details
+				// At this point, we know it does not already exist,
+				// so we can update the tracked transport id
 				current_transport.update((prev) => {
 					const updated_transport = prev!.update('id', value);
 					return updated_transport;
 				});
+
+				// and find the details
 				// TODO: Get the passengers from the Transport Chart
+				const passengers = createFakePassengerData(3);
+				console.log(passengers);
+				routes = $current_transport.findRoutes(passengers);
+
 				// routes = ['1', '2', '3'];
 			}, 2000);
 		}
@@ -125,11 +133,11 @@
 		<div>Choose a date to find the transport data</div>
 	{:else if loading}
 		<div>Creating transport for {$current_transport.id}</div>
-	{:else if routes.length === 0}
+	{:else if !routes}
 		<div>There were no routes found. Check the Transport Chart.</div>
 	{:else}
-		{#each routes as route}
-			<div>{route}</div>
+		{#each Object.entries(routes) as [leg, passengers]}
+			<div>{leg}: {passengers.map((p) => p.data.name).join(', ')}</div>
 		{/each}
 	{/if}
 {/if}
